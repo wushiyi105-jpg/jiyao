@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jiyao"
+version = "0.1.0"
+description = "会议纪要 Agent —— 决议、待办、悬置问题、跟进邮件"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+[project.scripts]
+jiyao = "jiyao.cli:main"
+
+[tool.setuptools]
+packages = ["jiyao"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
