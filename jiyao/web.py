@@ -114,7 +114,12 @@ def _handler(cfg, force_mock, db_path):
                 text = raw.decode("utf-8")
             except UnicodeDecodeError:
                 text = raw.decode("gbk", errors="replace")
-            return json.loads(text) if text else {}
+            if not text.strip():
+                return {}
+            try:
+                return json.loads(text)
+            except ValueError as e:
+                raise ValueError("请求体不是合法 JSON") from e
 
         def do_GET(self):
             path = urlparse(self.path).path
@@ -135,6 +140,10 @@ def _handler(cfg, force_mock, db_path):
                 return
             try:
                 body = self._read()
+            except ValueError:
+                self._json({"error": "请求体不是合法 JSON"}, 400)
+                return
+            try:
                 db.use(db_path)
                 r = agent.analyze(body.get("text", ""), topic=body.get("topic"),
                                   meeting_date=body.get("date"), force_mock=force_mock)
@@ -143,8 +152,8 @@ def _handler(cfg, force_mock, db_path):
                 self._json(r)
             except llm.LLMError as e:
                 self._json({"error": str(e)}, 400)
-            except Exception as e:  # noqa: BLE001
-                self._json({"error": str(e)}, 500)
+            except Exception:  # noqa: BLE001
+                self._json({"error": "服务器内部错误"}, 500)
 
         def log_message(self, *args):
             pass

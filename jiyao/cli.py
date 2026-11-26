@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 
 from . import __version__, agent, db, llm, rules
@@ -13,10 +14,21 @@ BANNER = ("⚠️  当前为离线模式(未配置 LLM_API_KEY):待办、决议�
           "   填入 LLM_API_KEY 后,摘要、执行提示与跟进邮件由模型撰写(日期与数字仍以本地抽取为准)。\n")
 
 
+class CliError(Exception):
+    """Input the user can fix: bad path, bad date, unreadable file."""
+
+
 def _text(args):
     if args.file:
-        with open(args.file, encoding="utf-8") as f:
-            return f.read()
+        try:
+            with open(args.file, encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            raise CliError("找不到文件:%s(--file 后面要写真实路径)" % args.file) from None
+        except IsADirectoryError:
+            raise CliError("%s 是目录,不是文件" % args.file) from None
+        except UnicodeDecodeError:
+            raise CliError("%s 不是 UTF-8 文本,先另存成 UTF-8 再传" % args.file) from None
     if args.text:
         return args.text
     if not sys.stdin.isatty():
@@ -166,10 +178,22 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    if getattr(args, "date", None):
+        try:
+            rules.strict_date(args.date)
+        except ValueError as e:
+            print("❌ %s" % e, file=sys.stderr)
+            sys.exit(2)
     if not args.mock and args.command in ("minutes", "email") and not llm.default_config().get("api_key"):
         print(BANNER, file=sys.stderr)
     try:
         args.func(args)
+    except CliError as e:
+        print("❌ %s" % e, file=sys.stderr)
+        sys.exit(2)
+    except sqlite3.Error as e:
+        print("❌ 数据库打不开:%s(--db 要指向一个 .db 文件,不能是目录)" % e, file=sys.stderr)
+        sys.exit(2)
     except LLMError as e:
         print("❌ %s" % e, file=sys.stderr)
         sys.exit(1)

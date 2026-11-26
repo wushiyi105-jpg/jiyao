@@ -22,6 +22,7 @@ def meeting():
 
 WEEK = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 7, "天": 7}
 SPEAKER_RE = re.compile(r"^(?:\[\d{1,2}:\d{2}(?::\d{2})?\]\s*)?([^\s:：,，]{1,12})\s*[:：]\s*(.*)$")
+HEADER_WORDS = {"会议", "主题", "议题", "参会", "参与", "参加", "出席", "地点", "时间", "日期", "主持", "记录"}
 MONTH_DAY_RE = re.compile(r"(\d{1,2})\s*月\s*(\d{1,2})\s*(?:日|号)")
 ISO_RE = re.compile(r"(20\d{2})-(\d{1,2})-(\d{1,2})")
 NUM_RE = re.compile(r"\d+(?:\.\d+)?")
@@ -45,6 +46,18 @@ def parse_date(text, base=None):
         except ValueError:
             return base
     return base
+
+
+def strict_date(text):
+    """Validate an explicit --date argument instead of silently falling back to today."""
+    m = re.fullmatch(r"(20\d{2})-(\d{1,2})-(\d{1,2})", (text or "").strip())
+    if not m:
+        raise ValueError("日期要写成 2026-11-24 这样的格式,收到的是「%s」" % text)
+    y, mo, d = (int(x) for x in m.groups())
+    try:
+        return date(y, mo, d)
+    except ValueError:
+        raise ValueError("「%s」不是真实存在的日期" % text) from None
 
 
 def parse_header(text):
@@ -76,7 +89,10 @@ def lines(text):
             continue
         m = SPEAKER_RE.match(raw)
         if m:
-            out.append((m.group(1), m.group(2).strip()))
+            speaker, body = m.group(1), m.group(2).strip()
+            if speaker in HEADER_WORDS:
+                continue
+            out.append((speaker, body))
         else:
             out.append((None, raw))
     return out
@@ -166,11 +182,13 @@ def suspended(text):
 
 
 def _question(s):
-    s = s.strip()
+    s = (s or "").strip()
     for m in meeting()["suspend_markers"]:
         s = s.replace(m, "")
-    s = s.strip(" ，,。；")
-    return s + " —— 需要下次会上明确结论" if s else "未明确结论，需要下次会上定"
+    parts = [p.strip(" ，,。；、:：") for p in re.split(r"[，,、；;]", s)]
+    parts = [p for p in parts if p]
+    cleaned = "，".join(parts)
+    return cleaned + " —— 需要下次会上明确结论" if cleaned else "未明确结论，需要下次会上定"
 
 
 def todos(text, participants=None, base=None):

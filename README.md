@@ -41,6 +41,25 @@ docker build -t jiyao .
 docker run -p 8000:8000 jiyao
 ```
 
+## 📂 真实示例
+
+`examples/` 里是 4 份真实转写和它们的存档输出，直接复制就能复现：
+
+| 输入 | 出处 | 该看到什么 |
+|---|---|---|
+| [`examples/case-01.txt`](examples/case-01.txt) | 线上团队周会（已脱敏） | 「明天发出来」落成 2026-11-25；「等运维开权限」标出依赖；「下周再说」「回头看看再定」进悬置不进待办 |
+| [`examples/case-02.txt`](examples/case-02.txt) | 订单接口 v2 评审会 | 「这个就这么定」进决议，「待定」「下次评审再说」进悬置；表头行不会变成一条待办 |
+| [`examples/case-03.txt`](examples/case-03.txt) | 华东仓配客户电话会 | 一条决议都没有就不硬凑；客户诉求不会被挂成我方待办 |
+| [`examples/case-04.txt`](examples/case-04.txt) | 10·21 支付回调事故复盘 | 37 笔、21:40 这些数字原样进邮件；「先放着，下次复盘再提」进悬置 |
+
+```bash
+for f in examples/case-*.txt; do
+  python -m jiyao --mock minutes --file "$f" > "examples/out/$(basename "$f")"
+done
+```
+
+存档输出在 `examples/out/case-0N.txt`，每份的来源与预期写在 [`examples/cases.json`](examples/cases.json)。这四份存档有测试逐字比对，改了抽取规则没同步更新就会红。
+
 ## 🤔 为什么不用通用大模型直接问
 
 通用模型会给你一段「本次会议讨论了登录改版、接口文档与埋点方案」的漂亮话,但不会告诉你李四的待办没有截止时间。差别在四点:
@@ -172,7 +191,9 @@ jiyao/
 │   ├── cli.py      # minutes / todos / email / agenda / history / web
 │   └── web.py      # 单页 + JSON API
 ├── data/meeting.json   # 4 类模板 + 动词表 + 含糊词 + 标记词
-├── tests/test_jiyao.py
+├── examples/           # 4 份真实转写 + cases.json + out/ 存档输出
+├── docs/regression-map.md  # issue → 测试 对照
+├── tests/              # test_jiyao.py(单测) + test_integration.py(真起服务/子进程)
 └── assets/demo.gif
 ```
 
@@ -182,7 +203,12 @@ jiyao/
 python -m unittest discover tests -v
 ```
 
-28 个单测:表头解析、说话人、五种日期表达、决议与悬置召回、待办完整性、依赖、含糊词、超期、议程、模板匹配、Markdown 分节、离线结构、邮件校验拒绝编造日期与金额。CI 在 3.10/3.11/3.12 上跑。
+61 条:28 条单测 + 33 条集成。单测覆盖表头解析、说话人、五种日期表达、决议与悬置召回、待办完整性、依赖、含糊词、超期、议程、模板匹配、Markdown 分节、离线结构、邮件校验拒绝编造日期与金额;集成测试真起 `http.server` 用原始 socket 发请求、真起子进程跑 CLI、把四份存档输出逐字比对。CI 在 3.10/3.11/3.12 上跑,并推多架构镜像到 GHCR。
+
+```bash
+docker pull ghcr.io/wushiyi105-jpg/jiyao:latest
+docker run -p 8000:8000 ghcr.io/wushiyi105-jpg/jiyao:latest
+```
 
 ## 👤 作者
 

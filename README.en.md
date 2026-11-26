@@ -41,6 +41,25 @@ docker build -t jiyao .
 docker run -p 8000:8000 jiyao
 ```
 
+## 📂 Real examples
+
+`examples/` holds four real transcripts and their archived output; copy them to reproduce:
+
+| Input | Where it came from | What to check |
+|---|---|---|
+| [`examples/case-01.txt`](examples/case-01.txt) | A team weekly, names replaced | "tomorrow" resolves to 2026-11-25; "waiting for ops access" is tagged as a dependency; "let's discuss next week" and "I'll look at it later" land in deferred, not to-dos |
+| [`examples/case-02.txt`](examples/case-02.txt) | An order-API v2 review | "这个就这么定" is a decision, "待定" / "next review" are deferred; the header line never turns into a todo |
+| [`examples/case-03.txt`](examples/case-03.txt) | A warehouse-client call | Zero decisions stays zero — nothing is invented; a client request is not assigned to our side as a todo |
+| [`examples/case-04.txt`](examples/case-04.txt) | A payment-callback postmortem | 37 orders and 21:40 survive into the email verbatim; "先放着" is deferred |
+
+```bash
+for f in examples/case-*.txt; do
+  python -m jiyao --mock minutes --file "$f" > "examples/out/$(basename "$f")"
+done
+```
+
+Archived output lives in `examples/out/case-0N.txt`; sources and expectations are in [`examples/cases.json`](examples/cases.json). A test compares those archives byte for byte, so changing extraction rules without regenerating them fails CI.
+
 ## 🤔 Why not just ask a general LLM
 
 A general model returns a polished paragraph about the login redesign, the API doc and the tracking plan, but it will not tell you that Li Si's to-do has no deadline. Four differences:
@@ -172,7 +191,9 @@ jiyao/
 │   ├── cli.py      # minutes / todos / email / agenda / history / web
 │   └── web.py      # single page + JSON API
 ├── data/meeting.json   # 4 templates + verbs + vague words + markers
-├── tests/test_jiyao.py
+├── examples/           # 4 real transcripts + cases.json + out/ archives
+├── docs/regression-map.md  # issue → test map
+├── tests/              # test_jiyao.py (unit) + test_integration.py (live server / subprocess)
 └── assets/demo.gif
 ```
 
@@ -182,7 +203,12 @@ jiyao/
 python -m unittest discover tests -v
 ```
 
-28 tests: header parsing, speakers, five date forms, decision/open recall, to-do completeness, dependencies, vague words, overdue, agenda, template match, Markdown sections, offline shape, and email guards rejecting invented dates and amounts. CI runs on 3.10/3.11/3.12.
+61 in total: 28 unit plus 33 integration. Unit covers header parsing, speakers, five date forms, decision/open recall, to-do completeness, dependencies, vague words, overdue, agenda, template match, Markdown sections, offline shape, and email guards rejecting invented dates and amounts. Integration starts a real `http.server` and talks to it over a raw socket, runs the CLI as a subprocess, and compares the four archived outputs byte for byte. CI runs on 3.10/3.11/3.12 and publishes a multi-arch image to GHCR.
+
+```bash
+docker pull ghcr.io/wushiyi105-jpg/jiyao:latest
+docker run -p 8000:8000 ghcr.io/wushiyi105-jpg/jiyao:latest
+```
 
 ## 👤 Author
 
