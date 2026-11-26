@@ -41,7 +41,7 @@ docker build -t jiyao .
 docker run -p 8000:8000 jiyao
 ```
 
-## 🤔 为什么不能直接让模型总结
+## 🤔 为什么不用通用大模型直接问
 
 通用模型会给你一段「本次会议讨论了登录改版、接口文档与埋点方案」的漂亮话,但不会告诉你李四的待办没有截止时间。差别在四点:
 
@@ -109,7 +109,7 @@ python -m jiyao --json minutes --file transcript.txt
 python -m jiyao --mock minutes --file transcript.txt
 ```
 
-## 🔌 模型配置
+## 🔌 模型接入
 
 兼容 **OpenAI `/chat/completions`** 的任意服务:
 
@@ -188,6 +188,6 @@ python -m unittest discover tests -v
 
 shiyi · GitHub [@wushiyi105-jpg](https://github.com/wushiyi105-jpg) · [wushiyi105@gmail.com](mailto:wushiyi105@gmail.com)
 
-## 📄 许可
+## 📄 License
 
 [MIT](./LICENSE)

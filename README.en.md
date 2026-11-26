@@ -41,7 +41,7 @@ docker build -t jiyao .
 docker run -p 8000:8000 jiyao
 ```
 
-## 🤔 Why not just let a model summarise
+## 🤔 Why not just ask a general LLM
 
 A general model returns a polished paragraph about the login redesign, the API doc and the tracking plan, but it will not tell you that Li Si's to-do has no deadline. Four differences:
 
