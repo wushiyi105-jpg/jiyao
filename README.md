@@ -1,219 +1,122 @@
-# 纪要 · 会议转写整理
+# jiyao · 会议纪要与决议追踪
 
-[![test](https://github.com/wushiyi105-jpg/jiyao/workflows/test/badge.svg)](https://github.com/wushiyi105-jpg/jiyao/actions) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)]() [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE) [![codecov](https://codecov.io/gh/wushiyi105-jpg/jiyao/branch/main/graph/badge.svg)](https://codecov.io/gh/wushiyi105-jpg/jiyao)
+![示例：把转写贴进去，得到决议与待办](assets/demo.gif)
 
-![示例](assets/demo.gif)
+会开完了，谁答应了什么、什么时候交、有没有交——一条都不许丢。
 
-> 把会议转写粘进来:拿走决议、待办、没人认领的问题,外加一封能直接发的跟进邮件。
+## 功能特性
 
-转写工具都能出文字,但没人愿意从两小时的口语里挑「哪些算定了」「谁答应了什么」「哪个问题又被跳过了」。这个工具把这些变成结构化输出:每条决议挂着发言原文,每条待办校验负责人、截止、动作三项,缺一项标黄;含糊词和不完整的待办自动进下次议程。
+- **原文回链**：每条决议与待办都带原文片段和字符位置，`trace.decision` / `trace.action` 校验不过就丢弃
+- **三类分离**：决议、待办、悬置问题分开输出，待办带负责人与期限
+- **完整性校验**：缺负责人出 `action.no_owner`，缺期限出 `action.no_due`，都不拦着入库，但会标出来
+- **逾期追踪**：到期未完成按天算逾期，超过 7 天 severity=high
+- **每日提醒**：`remind` 把过期 / 今天到期 / 3 天内到期汇总成一段，`jobs` 表按 key 幂等，同一天只发一条
+- **离线可用**：没有 API key 时全靠规则抽取；有 key 时模型补隐含待办，仍然要过原文校验
 
-**CLI + Web,零第三方依赖。**
-
-## ✨ 特性
-
-- ✅ **决议 vs 讨论** — 命中「定了 / 拍板 / 通过 / 同意」且不含「待定 / 下次再说」的句子才算决议,每条带发言人
-- 📌 **待办三要素校验** — 动作、负责人、截止、依赖;缺哪项就标「缺截止」,不装作完整
-- ⏳ **悬置问题单列** — 「下次再说」「再看看」「没有结论」自动收进悬置清单,并改写成待决问题
-- 🟡 **含糊词统计** — 「尽快」「回头」「看看」「之后」逐词计数,含糊就等于没有截止
-- 🗓 **下次议程自动生成** — 悬置问题 + 超期待办 + 缺截止待办,按类型排好
-- 📄 **跟进邮件** — 结论、待办表、需下次明确项;模型写的稿子要过日期与数字校验,通不过就用本地模板
-- 🧮 **日期本地解析** — `2026-11-24`、`11月24日`、`明天`、`本周五`、`下周三`、`月底` 都算得出具体日期
-- 🔒 **模型不改数字** — 邮件里的日期与金额必须来自转写原文,新造一个就整封退回
-
-## 🚀 快速开始
+## 快速开始
 
 ```bash
-git clone https://github.com/wushiyi105-jpg/jiyao.git
-cd jiyao
-
-cp .env.example .env      # 可选:LLM_API_KEY
-
-python -m jiyao minutes --file transcript.txt
+uv sync --extra dev
+uv run jiyao digest --file meeting.txt --save --title "支付评审"
+uv run jiyao actions
+uv run jiyao remind
+uv run jiyao serve        # http://127.0.0.1:8000
 ```
 
-转写格式不讲究,`姓名: 内容` 一行一句就行;带时间戳的 `[00:12] 张三: …` 也能认。
+实测这段转写（"主持人：把支付流程定了…小李：我负责下周三把验证脚本写完…"）抽到 1 条决议、1 条待办，负责人小李，期限 2026-12-02（当天是 11-27 周五，"下周三"）。
+本仓 26 条测试，行覆盖 80%。
 
-Docker:
+## 为什么不用通用大模型直接问
+
+把转写丢给通用模型也能出纪要，但它：
+
+1. **不保证原文**——它会改写、合并，甚至编一句"大家一致同意"；
+2. **不跟踪**——出完就完了，下周没人知道那件事做没做；
+3. **不标缺项**——待办没写负责人，它不会提醒你"这条没人认领"；
+4. **不会自己想起**——没有到期提醒，逾期也没人管。
+
+jiyao 里每条决议和待办必须能在转写里逐字找到，找不到就丢；跟踪、逾期、提醒都在本地代码里。
+
+## 适用场景
+
+- 每周开 3 场以上会的人；
+- 需要把会议结论发给别人、还要被追问进度的人；
+- 带项目、要追交付日期的人。
+
+## Roadmap
+
+- [ ] 决议之间的依赖关系（A 没做完，B 不能开始）
+- [ ] 多会议串联：同一件事跨周追踪，自动合并
+- [ ] 从日历读取会议标题与参会人，减少手填
+- [ ] 导出 markdown 周报
+
+## FAQ
+
+**问：抽漏了怎么办？**
+规则只认标记词（"定了/确认/决定"）和明确的负责人+日期句式。漏了要么把话说全，要么开模型补，但补出来的仍然要过原文校验——宁可漏，不可编。
+
+**问：`remind` 会不会重复发？**
+不会。key 是 `remind:日期`，写进 `jobs` 表，第二次运行直接返回"已提醒过"；确实要重发加 `--force`。
+
+**问：旧版 0.x 的库能迁吗？**
+`jiyao migrate --db data/jiyao.db`：先备份成 `jiyao.bak-时间戳.db`，把旧的 `meetings.topic` / `todos` 转成新表，认不出的结构退出码 2，原文件不动。
+
+**问：没有 API key 能用吗？**
+能。digest / actions / remind / serve 全部离线；只有模型补充需要 key，没配就走规则。
+
+## 命令参考
 
 ```bash
-docker build -t jiyao .
-docker run -p 8000:8000 jiyao
+jiyao digest --file 转写.txt [--text "..."] [--title 标题] [--save] [--json] [--db 路径]
+jiyao email --file 转写.txt                  # 生成跟进邮件
+jiyao actions [--db 路径]                    # 未完成待办
+jiyao done <id> [--db 路径]
+jiyao remind [--force] [--db 路径]           # 每日提醒，幂等
+jiyao migrate [--db 路径]                    # 0.x 旧库迁移，先备份
+jiyao serve [--port 8000] [--db 路径]
+jiyao doctor [--db 路径]                     # 配置 / 数据库 / 模型 / webhook
 ```
 
-## 📂 真实示例
+## 依赖说明
 
-`examples/` 里是 4 份真实转写和它们的存档输出，直接复制就能复现：
+运行时：`fastapi`、`uvicorn`、`jinja2`、`python-multipart`、`pydantic` + `pydantic-settings`（前缀 `JY_`）、`httpx`、`typer` + `rich`、`sqlalchemy` + `alembic`。
+开发：`pytest`、`pytest-cov`、`ruff`（line-length 100）、`mypy`。
+Python ≥3.10；镜像 `python:3.10-slim`，两阶段，`EXPOSE 8000`。
 
-| 输入 | 出处 | 该看到什么 |
-|---|---|---|
-| [`examples/case-01.txt`](examples/case-01.txt) | 线上团队周会（已脱敏） | 「明天发出来」落成 2026-11-25；「等运维开权限」标出依赖；「下周再说」「回头看看再定」进悬置不进待办 |
-| [`examples/case-02.txt`](examples/case-02.txt) | 订单接口 v2 评审会 | 「这个就这么定」进决议，「待定」「下次评审再说」进悬置；表头行不会变成一条待办 |
-| [`examples/case-03.txt`](examples/case-03.txt) | 华东仓配客户电话会 | 一条决议都没有就不硬凑；客户诉求不会被挂成我方待办 |
-| [`examples/case-04.txt`](examples/case-04.txt) | 10·21 支付回调事故复盘 | 37 笔、21:40 这些数字原样进邮件；「先放着，下次复盘再提」进悬置 |
-
-```bash
-for f in examples/case-*.txt; do
-  python -m jiyao --mock minutes --file "$f" > "examples/out/$(basename "$f")"
-done
-```
-
-存档输出在 `examples/out/case-0N.txt`，每份的来源与预期写在 [`examples/cases.json`](examples/cases.json)。这四份存档有测试逐字比对，改了抽取规则没同步更新就会红。
-
-## 🤔 为什么不用通用大模型直接问
-
-通用模型会给你一段「本次会议讨论了登录改版、接口文档与埋点方案」的漂亮话,但不会告诉你李四的待办没有截止时间。差别在四点:
-
-1. **日期是算出来的,不是猜的** — `rules.dates_in()` 把「明天」映射成 `2026-11-25`(基准是会议日期,不是今天),「本周五」按周一起算,「月底」取当月最后一天。模型经常把相对时间按「现在」换算,纪要里的截止就整体错一周。
-2. **待办完整性是校验出来的** — 「接口文档我明天发出来」有动作(发)、有负责人(李四)、有截止(2026-11-25),三项齐,标 ✅;「数据看板尽快看一下」只有动作和人,缺截止,标 ⚠️ 缺 截止,并进入下次议程。这是 `rules.todos()` 的 `missing` 字段,不是措辞。
-3. **含糊词有账可查** — 「尽快」出现 1 次、「再说」1 次,`rules.vague_hits()` 直接计数。含糊词不是语气问题,是排期风险。
-4. **邮件不许编** — 模型写邮件可以,但 `agent.guard_email()` 会把邮件里的每个日期与数字和本地抽取结果比对,出现未授权的 `2026-12-01` 或 `8800`,整封退回本地模板重写。金额与日期不会因为模型幻觉而变。
-
-## 🎯 适用场景
-
-- **周会**:一小时会、十条待办,散会后五分钟出纪要,谁没截止一眼看到。
-- **评审**:结论与遗留问题分开,未通过项落到人。
-- **复盘**:目标、结果、问题、改进项,避免开成吐槽会。
-- **客户沟通**:客户诉求与我方答复分列,待办与需客户确认项分开。
-- **跨时区/远程**:转写直接粘,不用回听录音。
-
-## 🗺 Roadmap
-
-- **多文件合并**:一次会议多段转写按时间戳拼接,自动去重。
-- **说话人纠正**:转写把两个人认成一个人时,支持一次性改名并同步全部引用。
-- **待办状态回写**:`done` / `blocked` 标记,历史里看某人的未结项。
-- **日历导出**:截止时间生成 `.ics`,直接进日历。
-- **模板自定义**:从 `data/meeting.json` 派生自己的周会/评审模板。
-
-## ❓ FAQ
-
-**转写是口语,断句都没有怎么办?**
-按 `[。！？；\n]` 切句,再按发言人行归属。没有发言人的整段文本也能处理,只是负责人识别会弱一些,`--participants` 可以补名单。
-
-**模型会不会把「明天」算错?**
-不会。相对日期全部由本地按会议日期换算,模型拿到的是已经算好的 `2026-11-25`,而且邮件里的日期还要过校验。
-
-**「下周再说」算待办还是悬置?**
-悬置。命中悬置词就不进待办表,避免出现一条永远没有截止的「待办」。
-
-**能识别金额吗?**
-能抽取(`rules.numbers()`),但只用于校验模型是否新造数字;本工具不做费用核算。
-
-**离线模式缺什么?**
-只缺摘要与执行提示的措辞,决议、待办、悬置、议程、邮件正文全部照出,结构完全一致。
-
-## 📖 命令参考
-
-```bash
-# 📝 完整纪要
-python -m jiyao minutes --file transcript.txt
-python -m jiyao minutes --text "张三: 接口文档我明天发出来。" --topic "产品周会" --date 2026-11-24
-
-# 📌 只看待办
-python -m jiyao todos --file transcript.txt
-
-# 📄 只要邮件
-python -m jiyao email --file transcript.txt
-
-# 🗓 只要议程
-python -m jiyao agenda --file transcript.txt
-
-# 🗂 历史
-python -m jiyao history
-
-# 🌐 Web
-python -m jiyao web --port 8000
-
-python -m jiyao --json minutes --file transcript.txt
-python -m jiyao --mock minutes --file transcript.txt
-```
-
-## 🔌 模型接入
-
-兼容 **OpenAI `/chat/completions`** 的任意服务:
-
-| 平台 | `LLM_BASE_URL` | `LLM_MODEL` |
-|---|---|---|
-| DeepSeek(默认) | `https://api.deepseek.com` | `deepseek-flash` |
-| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
-| 本地 Ollama | `http://localhost:11434/v1` | `qwen2.5` |
-
-## 🧠 工作原理
-
-```
-转写 + 主题 + 参会人 + 会议日期
-  │
-  ├─ rules.parse_header ── 主题 / 参会 / 日期
-  ├─ rules.people ─────── 发言人 + 名单对齐
-  ├─ rules.dates_in ───── 相对日期 → 具体日期
-  ├─ rules.decisions ──── 决议(排除悬置词)
-  ├─ rules.suspended ──── 悬置问题
-  ├─ rules.todos ──────── 动作 / 负责人 / 截止 / 依赖 / 缺失项
-  ├─ rules.overdue ────── 超期
-  ├─ rules.agenda ─────── 悬置 + 超期 + 缺截止
-  │
-  ├─ 模型:摘要 / 执行提示 / 风险 / 邮件(guard_email 校验)
-  └─ 离线:mock.py 同结构草稿 + 本地邮件
-  │
-  └─ SQLite → CLI / Web
-```
-
-### 数据流
+## 工作原理
 
 ```mermaid
 flowchart LR
-    A[转写文本] --> B[rules.py<br/>主题/参会/日期]
-    B --> C[rules.py<br/>决议/悬置]
-    B --> D[rules.py<br/>待办三要素]
-    D --> E[rules.py<br/>超期/议程]
-    C --> F{有 key?}
-    D --> F
-    E --> F
-    F -->|否| G[mock.py]
-    F -->|是| H[agent.py 模型草稿]
-    H --> I[guard_email]
-    I -->|不通过| J[local_email]
-    G --> K[minutes_markdown]
-    J --> K
-    K --> L[db.py]
-    L --> M[cli.py / web.py]
+    A[会议转写] --> B[标记词 + 负责人正则 + 日期解析]
+    B --> C[原文校验：quote 必须逐字命中]
+    C -- 不命中 --> X[丢弃并记 trace.*]
+    C -- 命中 --> D[完整性：负责人 / 期限]
+    D --> E[逾期按天计算]
+    E --> F[Report：决议 + 待办 + 问题]
+    F --> G[(SQLite: meetings / decisions / actions / jobs)]
+    G --> H[remind：过期 / 今天 / 3 天内，jobs 幂等]
 ```
 
-## 🗂 目录结构
+规则全在 `domain/rules/`，存储与迁移在 `adapters/`，CLI/Web 只展示。
+
+## 目录结构
 
 ```
 jiyao/
 ├── jiyao/
-│   ├── rules.py    # 日期、人名、决议、悬置、待办、议程、Markdown
-│   ├── agent.py    # 编排 + 邮件日期/数字校验
-│   ├── mock.py     # 离线同结构草稿
-│   ├── db.py       # 会议与待办
-│   ├── cli.py      # minutes / todos / email / agenda / history / web
-│   └── web.py      # 单页 + JSON API
-├── data/meeting.json   # 4 类模板 + 动词表 + 含糊词 + 标记词
-├── examples/           # 4 份真实转写 + cases.json + out/ 存档输出
-├── docs/regression-map.md  # issue → 测试 对照
-├── tests/              # test_jiyao.py(单测) + test_integration.py(真起服务/子进程)
-└── assets/demo.gif
+│   ├── domain/          # models、engine、rules/{extract,track}、remind
+│   ├── adapters/        # store.py（SQLAlchemy）、migrate.py、llm.py
+│   ├── iface/           # cli.py（Typer）、web.py（FastAPI + Jinja2）
+│   ├── config.py        # JY_ 前缀配置
+│   └── doctor.py
+├── migrations/          # alembic env + versions/0001_init.py
+├── prompts/extract.md   # 模型补充抽取的提示词
+├── templates/
+├── tests/               # 26 条：抽取 / 校验 / 提醒 / 迁移 / 接口
+├── Dockerfile           # python:3.10-slim，EXPOSE 8000
+└── .github/workflows/test.yml
 ```
 
-## ✅ 测试
+## 作者
 
-```bash
-python -m unittest discover tests -v
-```
-
-61 条:28 条单测 + 33 条集成。单测覆盖表头解析、说话人、五种日期表达、决议与悬置召回、待办完整性、依赖、含糊词、超期、议程、模板匹配、Markdown 分节、离线结构、邮件校验拒绝编造日期与金额;集成测试真起 `http.server` 用原始 socket 发请求、真起子进程跑 CLI、把四份存档输出逐字比对。CI 在 3.10/3.11/3.12 上跑,并推多架构镜像到 GHCR。
-
-```bash
-docker pull ghcr.io/wushiyi105-jpg/jiyao:latest
-docker run -p 8000:8000 ghcr.io/wushiyi105-jpg/jiyao:latest
-```
-
-## 👤 作者
-
-罗之之 · 15071889700
-
-## 📄 License
-
-[MIT](./LICENSE)
+shiyi · GitHub [@wushiyi105-jpg](https://github.com/wushiyi105-jpg) · wushiyi105@gmail.com
