@@ -6,6 +6,7 @@ from datetime import date
 
 from jiyao.app.run import digest_and_save
 from jiyao.domain.models import Action, Decision, Report
+from jiyao.ports import StorePort
 
 
 class FakeStore:
@@ -33,8 +34,9 @@ class FakeStore:
 
 
 def test_digest_and_save_with_fake_store() -> None:
-    store = FakeStore()
+    fake = FakeStore()
+    store: StorePort = fake
     report, mid = digest_and_save(store, "主持人：下周三前交验证脚本。小李：我负责。", date(2026, 11, 27), "周会")
     assert mid == 3
     assert report.actions
-    assert store.saved[0][1] == "周会"
+    assert fake.saved[0][1] == "周会"
