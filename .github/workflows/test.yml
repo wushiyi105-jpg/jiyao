@@ -29,6 +29,13 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      - name: No module/package shadowing
+        run: |
+          for p in $(find . -name "*.py" -not -path "./.venv/*"); do
+            d="${p%.py}"
+            if [ -d "$d" ] && [ -f "$d/__init__.py" ]; then echo "同名遮蔽: $p"; exit 1; fi
+          done
+
       - name: Type check
         run: uv run mypy jiyao tests/test_app_fake.py
 
