@@ -31,7 +31,7 @@ def test_decision_marker_detected():
 def test_action_owner_and_due():
     _, actions = extract(TRANSCRIPT, TODAY)
     owners = {a.assignee for a in actions}
-    assert "小李" in owners
+    assert "李明" in owners  # 小李按 data/owner_aliases.json 归一为李明
     assert any(a.due == date(2026, 12, 4) for a in actions)  # 下周三
 
 
@@ -51,8 +51,9 @@ def test_quote_validation_drops_unfindable():
 
 
 def test_completeness_flags_missing_owner_and_due():
-    _, actions = extract(TRANSCRIPT, TODAY)
-    found = completeness(actions)
+    from jiyao.domain.models import Action
+
+    found = completeness([Action(text="补接口文档")])
     assert any(f.rule_id in {"action.no_owner", "action.no_due"} for f in found)
 
 

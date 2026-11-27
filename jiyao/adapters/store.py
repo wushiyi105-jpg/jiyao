@@ -130,6 +130,12 @@ class Store:
             rows = s.scalars(select(DecisionRow).where(DecisionRow.meeting_id == meeting_id)).all()
             return [Decision(text=r.text, quote=r.quote, offset=r.offset) for r in rows]
 
+    def meeting(self, meeting_id: int) -> tuple[str, str] | None:
+        """返回 (标题, 转写)；找不到返回 None。"""
+        with self.session_factory() as s:
+            row = s.get(MeetingRow, meeting_id)
+            return (row.title, row.transcript) if row else None
+
     def mark_job(self, key: str, body: str, kind: str = "remind") -> bool:
         """写入提醒任务；同 key 已存在返回 False（幂等）。"""
         with self.session_factory() as s:

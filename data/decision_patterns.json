@@ -1,0 +1,16 @@
+{
+  "patterns": [
+    {"id": "p01", "keyword": "决定", "example": "我们决定先做小程序，不做 App。"},
+    {"id": "p02", "keyword": "确认", "example": "确认一下，本周先交验证脚本。"},
+    {"id": "p03", "keyword": "敲定", "example": "价格敲定为 3.8 万，含两次改版。"},
+    {"id": "p04", "keyword": "定为", "example": "上线时间定为 12 月 15 日。"},
+    {"id": "p05", "keyword": "通过", "example": "设计稿通过了，可以进开发。"},
+    {"id": "p06", "keyword": "同意", "example": "大家同意先砍掉积分商城。"},
+    {"id": "p07", "keyword": "定了", "example": "预算定了，不超过 8 万。"},
+    {"id": "p08", "keyword": "就这么", "example": "文案就这么发，不再改。"},
+    {"id": "p09", "keyword": "拍板", "example": "老板拍板：先保交付，再加功能。"},
+    {"id": "p10", "keyword": "明确", "example": "明确一下，退款由客服组统一处理。"},
+    {"id": "p11", "keyword": "统一", "example": "对外口径统一用这一版。"},
+    {"id": "p12", "keyword": "结论是", "example": "结论是这周不扩量，先把留存修好。"}
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "meetings": [
+    {"title": "产品周会 · 支付与退款", "template": "weekly", "file": "meetings/weekly.md"},
+    {"title": "新用户留存复盘", "template": "review", "file": "meetings/review.md"},
+    {"title": "门店巡检系统启动会", "template": "kickoff", "file": "meetings/kickoff.md"}
+  ]
+}

@@ -6,10 +6,15 @@ import calendar
 import re
 from datetime import date, timedelta
 
+from ..catalog import decision_markers, normalize_owner
 from ..models import Action, Decision
 
-DECISION_MARKERS = ("决定", "确认", "敲定", "定为", "通过", "同意", "定了", "就这么")
-ACTION_MARKERS = ("负责", "跟进", "下周", "本周", "月底", "之前", "安排", "补")
+DECISION_MARKERS = decision_markers()
+ACTION_MARKERS = (
+    "负责", "跟进", "安排", "补", "修", "核对", "交付", "发", "改", "写",
+    "给", "处理", "协调", "排期", "培训", "实现", "出", "上线", "完成",
+)
+TIME_MARKERS = ("下周", "本周", "这周", "月底", "今天", "明天", "后天", "之前", "月")
 
 CN_NUM = {"一": 0, "二": 1, "三": 2, "四": 3, "五": 4, "六": 5, "日": 6, "天": 6}
 SPEAKER_RE = re.compile(r"^([\u4e00-\u9fa5]{2,4})[：:]")
@@ -74,22 +79,36 @@ def parse_due(sentence: str, today: date) -> date | None:
 
 def _owner(sentence: str) -> str:
     speaker = SPEAKER_RE.match(sentence)
-    if speaker and any(k in sentence for k in ("我负责", "我来", "我补", "我跟进")):
-        return speaker.group(1)
+    if speaker and "我们" not in sentence:
+        said = sentence[speaker.end():]
+        if "我" in said and any(k in said for k in ACTION_MARKERS + TIME_MARKERS):
+            return normalize_owner(speaker.group(1))
     m = OWNER_RE.search(sentence)
-    return m.group(1) if m else ""
+    return normalize_owner(m.group(1)) if m else ""
+
+
+def _is_action(sentence: str) -> bool:
+    owner = _owner(sentence)
+    if any(k in sentence for k in DECISION_MARKERS) and not owner:
+        return False
+    has_verb = any(k in sentence for k in ACTION_MARKERS)
+    has_time = any(k in sentence for k in TIME_MARKERS)
+    return has_verb and (has_time or bool(owner))
 
 
 def extract(transcript: str, today: date) -> tuple[list[Decision], list[Action]]:
     decisions: list[Decision] = []
     actions: list[Action] = []
     for sentence, offset in split_sentences(transcript):
-        if any(k in sentence for k in DECISION_MARKERS):
-            decisions.append(Decision(text=sentence.strip(), quote=sentence.strip(), offset=offset))
-        if any(k in sentence for k in ACTION_MARKERS):
+        spoken = SPEAKER_RE.sub("", sentence).strip()
+        if any(k in sentence for k in DECISION_MARKERS) and not sentence.rstrip().endswith(
+            ("吗？", "吗?")
+        ):
+            decisions.append(Decision(text=spoken, quote=sentence.strip(), offset=offset))
+        if _is_action(sentence):
             actions.append(
                 Action(
-                    text=sentence.strip(),
+                    text=spoken,
                     assignee=_owner(sentence),
                     due=parse_due(sentence, today),
                     quote=sentence.strip(),

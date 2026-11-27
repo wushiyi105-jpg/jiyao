@@ -12,10 +12,12 @@ from rich.table import Table
 
 from ..adapters.llm import build_llm
 from ..adapters.store import Store
+from ..app.minutes import build_minutes
 from ..app.run import SUMMARY_PROMPT, digest_and_save, finish, open_actions, reminder
 from ..app.run import digest as run_digest
 from ..app.run import email as build_email
 from ..config import settings as base_settings
+from ..domain.catalog import seed_meetings, template_by_id, template_for, transcript_path
 
 app = typer.Typer(add_completion=False, help="jiyao —— 会议纪要与决议追踪")
 console = Console()
@@ -83,6 +85,59 @@ def digest(
         for f in report.findings:
             color = "red" if f.severity == "high" else "yellow"
             console.print(f"  · [{color}]{f.rule_id}[/] {f.message}")
+
+
+@app.command()
+def seed(db: Path = typer.Option(None)) -> None:
+    """写入 3 场真实会议：周会、复盘、启动会。"""
+    settings = _settings(db)
+    store = Store(settings.db_path)
+    total_d = total_a = 0
+    for item in seed_meetings():
+        transcript = transcript_path(item["file"]).read_text(encoding="utf-8")
+        report, meeting_id = digest_and_save(store, transcript, date.today(), item["title"], None)
+        total_d += len(report.decisions)
+        total_a += len(report.actions)
+        console.print(f"[green]已保存[/] #{meeting_id} {item['title']}")
+    console.print(f"共 3 场会议、{total_d} 条结论、{total_a} 条待办")
+
+
+@app.command()
+def minutes(
+    file: Path = typer.Option(None, "--file", help="转写文件（.txt/.md）"),
+    text: str = typer.Option(None, "--text", help="直接给一段转写"),
+    meeting: int = typer.Option(0, "--meeting", help="从数据库读取已保存会议"),
+    title: str = typer.Option("", help="会议标题"),
+    template: str = typer.Option("", help="模板 id：weekly / review / kickoff"),
+    out: Path = typer.Option(None, help="输出 Markdown；不填打印到终端"),
+    db: Path = typer.Option(None),
+) -> None:
+    """一次成文：纪要 + 邮件草稿 + 群消息，每条结论带原文。"""
+    settings = _settings(db)
+    store = Store(settings.db_path)
+    if meeting:
+        found = store.meeting(meeting)
+        if not found:
+            console.print(f"[red]没有这场会议[/] #{meeting}")
+            raise typer.Exit(code=2)
+        title, transcript = found
+    else:
+        if file is None and text is None:
+            console.print("[red]需要 --file、--text 或 --meeting[/]")
+            raise typer.Exit(code=2)
+        transcript = file.read_text(encoding="utf-8") if file else (text or "")
+    tpl = template_by_id(template) if template else template_for(title)
+    if template and not tpl:
+        console.print(f"[red]没有这个模板[/] {template}")
+        raise typer.Exit(code=2)
+    report = run_digest(transcript, date.today())
+    body = build_minutes(report, title, date.today(), tpl)
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(body, encoding="utf-8")
+        console.print(f"[green]已写出[/] {out}（{len(body.splitlines())} 行）")
+    else:
+        console.print(body)
 
 
 @app.command()

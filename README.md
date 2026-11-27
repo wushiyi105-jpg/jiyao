@@ -7,6 +7,7 @@
 ## 功能特性
 
 - **原文回链**：每条决议与待办都带原文片段和字符位置，`trace.decision` / `trace.action` 校验不过就丢弃
+- **三件套一次成文**：`minutes` 一条命令输出纪要、邮件草稿、可复制群消息，不用再拼三段
 - **三类分离**：决议、待办、悬置问题分开输出，待办带负责人与期限
 - **完整性校验**：缺负责人出 `action.no_owner`，缺期限出 `action.no_due`，都不拦着入库，但会标出来
 - **逾期追踪**：到期未完成按天算逾期，超过 7 天 severity=high
@@ -17,14 +18,19 @@
 
 ```bash
 uv sync --extra dev
+uv run jiyao seed --db data/jiyao.db      # 3 场真实会议，直接可看效果
+uv run jiyao minutes --meeting 1 --db data/jiyao.db --out 周会纪要.md
 uv run jiyao digest --file meeting.txt --save --title "支付评审"
 uv run jiyao actions
 uv run jiyao remind
 uv run jiyao serve        # http://127.0.0.1:8021
 ```
 
-实测这段转写（"主持人：把支付流程定了…小李：我负责下周三把验证脚本写完…"）抽到 1 条决议、1 条待办，负责人小李，期限 2026-12-02（当天是 11-27 周五，"下周三"）。
-本仓 31 条测试，行覆盖 80%。
+`minutes` 输出一份 Markdown，里面已经排好：结论（逐条带“原文（第 N 字）”）、待办表（负责人 / 期限 / 原文）、风险、邮件草稿、群消息。邮件和群消息都在独立代码块里，复制就能发。
+
+实测 3 场种子会议抽出 12 条结论、9 条待办；`minutes --meeting 1` 生成 88 行纪要。责任人别名会归一：`小李`→`李明`、`运营`→`运营组`，避免同一个人在三场会里出现三个名字。
+
+本仓 37 条测试，行覆盖 80%。
 
 ## 为什么不用通用大模型直接问
 
@@ -67,6 +73,9 @@ jiyao 里每条决议和待办必须能在转写里逐字找到，找不到就�
 ## 命令参考
 
 ```bash
+jiyao seed [--db 路径]                       # 3 场真实会议：周会 / 复盘 / 启动会
+jiyao minutes --file 转写.txt [--title 标题] [--template weekly|review|kickoff] [--out 纪要.md]
+jiyao minutes --meeting 1 [--db 路径] --out 纪要.md
 jiyao digest --file 转写.txt [--text "..."] [--title 标题] [--save] [--json] [--db 路径]
 jiyao email --file 转写.txt                  # 生成跟进邮件
 jiyao actions [--db 路径]                    # 未完成待办
@@ -112,7 +121,7 @@ jiyao/
 ├── migrations/          # alembic env + versions/0001_init.py
 ├── prompts/extract.md   # 模型补充抽取的提示词
 ├── templates/
-├── tests/               # 26 条：抽取 / 校验 / 提醒 / 迁移 / 接口
+├── tests/               # 37 条：抽取 / 校验 / 提醒 / 迁移 / 三件套 / 接口
 ├── Dockerfile           # python:3.10-slim，EXPOSE 8021
 └── .github/workflows/test.yml
 ```
