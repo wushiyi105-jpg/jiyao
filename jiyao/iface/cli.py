@@ -11,8 +11,10 @@ from rich.console import Console
 from rich.table import Table
 
 from ..adapters.store import Store
+from ..app.run import digest as run_digest
+from ..app.run import digest_and_save, finish, open_actions, reminder
+from ..app.run import email as build_email
 from ..config import settings as base_settings
-from ..domain.engine import analyze, followup_email
 
 app = typer.Typer(add_completion=False, help="jiyao —— 会议纪要与决议追踪")
 console = Console()
@@ -36,11 +38,12 @@ def digest(
         console.print("[red]需要 --file 或 --text[/]")
         raise typer.Exit(code=2)
     transcript = file.read_text(encoding="utf-8") if file else (text or "")
-    report = analyze(transcript, date.today())
-
+    store = Store(_settings(db).db_path)
     if save:
-        meeting_id = Store(_settings(db).db_path).save(report, title)
+        report, meeting_id = digest_and_save(store, transcript, date.today(), title)
         console.print(f"[green]已保存[/] 会议 #{meeting_id}")
+    else:
+        report = run_digest(transcript, date.today())
 
     if as_json:
         console.print_json(json.dumps({
@@ -75,15 +78,14 @@ def digest(
 @app.command()
 def email(file: Path = typer.Option(..., "--file")) -> None:
     """生成跟进邮件。"""
-    report = analyze(file.read_text(encoding="utf-8"), date.today())
-    console.print(followup_email(report))
+    console.print(build_email(file.read_text(encoding="utf-8"), date.today()))
 
 
 @app.command()
 def actions(db: Path = typer.Option(None)) -> None:
     """所有未完成待办。"""
     store = Store(_settings(db).db_path)
-    rows = store.open_actions()
+    rows = open_actions(store)
     if not rows:
         console.print("[green]没有未完成待办[/]")
         return
@@ -98,7 +100,7 @@ def actions(db: Path = typer.Option(None)) -> None:
 @app.command()
 def done(action_id: int, db: Path = typer.Option(None)) -> None:
     """标记完成。"""
-    if not Store(_settings(db).db_path).complete(action_id):
+    if not finish(Store(_settings(db).db_path), action_id):
         console.print(f"[red]没有这条待办[/] #{action_id}")
         raise typer.Exit(code=2)
     console.print(f"[green]已完成[/] #{action_id}")
@@ -107,11 +109,10 @@ def done(action_id: int, db: Path = typer.Option(None)) -> None:
 @app.command()
 def remind(db: Path = typer.Option(None), force: bool = typer.Option(False, "--force")) -> None:
     """今天的待办提醒：过期 / 今天到期 / 三天内，同一天只发一条。"""
-    from ..domain.remind import reminder_text
 
     settings = _settings(db)
     store = Store(settings.db_path)
-    text = reminder_text(store.open_actions(), date.today(), settings.remind_ahead_days)
+    text = reminder(store, date.today(), settings.remind_ahead_days)
     if not text:
         console.print("[green]今天没有要提醒的待办[/]")
         return
@@ -165,13 +166,14 @@ def doctor(db: Path = typer.Option(None)) -> None:
 
 
 @app.command()
-def serve(port: int = typer.Option(8000), db: Path = typer.Option(None)) -> None:
+def serve(port: int = typer.Option(0, help="0 表示用配置里的 8021"), db: Path = typer.Option(None)) -> None:
     """Web 界面。"""
     import uvicorn
 
     from .web import app_factory
 
-    uvicorn.run(app_factory(_settings(db)), host="127.0.0.1", port=port)
+    settings = _settings(db)
+    uvicorn.run(app_factory(settings), host="127.0.0.1", port=port or settings.port)
 
 
 if __name__ == "__main__":  # pragma: no cover

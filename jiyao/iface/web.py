@@ -10,8 +10,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from ..adapters.store import Store
+from ..app.run import digest_and_save, open_actions
 from ..config import Settings
-from ..domain.engine import analyze
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[2] / "templates"))
 
@@ -22,18 +22,17 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:
-        return TEMPLATES.TemplateResponse(request, "index.html", {"result": None, "open": store.open_actions()})
+        return TEMPLATES.TemplateResponse(request, "index.html", {"result": None, "open": open_actions(store)})
 
     @app.post("/digest", response_class=HTMLResponse)
     def do_digest(request: Request, transcript: str = Form(""), title: str = Form("")) -> HTMLResponse:
-        report = analyze(transcript, date.today())
-        store.save(report, title)
+        report, _ = digest_and_save(store, transcript, date.today(), title)
         result = {
             "decisions": [d.text for d in report.decisions],
             "actions": [(a.text, a.assignee or "—", a.due.isoformat() if a.due else "—") for a in report.actions],
             "findings": [(f.rule_id, f.message) for f in report.findings],
         }
-        return TEMPLATES.TemplateResponse(request, "index.html", {"result": result, "open": store.open_actions()})
+        return TEMPLATES.TemplateResponse(request, "index.html", {"result": result, "open": open_actions(store)})
 
     @app.get("/health")
     def health() -> dict[str, str]:

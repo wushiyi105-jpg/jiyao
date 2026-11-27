@@ -20,11 +20,11 @@ uv sync --extra dev
 uv run jiyao digest --file meeting.txt --save --title "支付评审"
 uv run jiyao actions
 uv run jiyao remind
-uv run jiyao serve        # http://127.0.0.1:8000
+uv run jiyao serve        # http://127.0.0.1:8021
 ```
 
 实测这段转写（"主持人：把支付流程定了…小李：我负责下周三把验证脚本写完…"）抽到 1 条决议、1 条待办，负责人小李，期限 2026-12-02（当天是 11-27 周五，"下周三"）。
-本仓 26 条测试，行覆盖 80%。
+本仓 31 条测试，行覆盖 80%。
 
 ## 为什么不用通用大模型直接问
 
@@ -73,7 +73,7 @@ jiyao actions [--db 路径]                    # 未完成待办
 jiyao done <id> [--db 路径]
 jiyao remind [--force] [--db 路径]           # 每日提醒，幂等
 jiyao migrate [--db 路径]                    # 0.x 旧库迁移，先备份
-jiyao serve [--port 8000] [--db 路径]
+jiyao serve [--port 8021] [--db 路径]
 jiyao doctor [--db 路径]                     # 配置 / 数据库 / 模型 / webhook
 ```
 
@@ -81,7 +81,7 @@ jiyao doctor [--db 路径]                     # 配置 / 数据库 / 模型 / w
 
 运行时：`fastapi`、`uvicorn`、`jinja2`、`python-multipart`、`pydantic` + `pydantic-settings`（前缀 `JY_`）、`httpx`、`typer` + `rich`、`sqlalchemy` + `alembic`。
 开发：`pytest`、`pytest-cov`、`ruff`（line-length 100）、`mypy`。
-Python ≥3.10；镜像 `python:3.10-slim`，两阶段，`EXPOSE 8000`。
+Python ≥3.10；镜像 `python:3.10-slim`，两阶段，`EXPOSE 8021`。
 
 ## 工作原理
 
@@ -113,7 +113,7 @@ jiyao/
 ├── prompts/extract.md   # 模型补充抽取的提示词
 ├── templates/
 ├── tests/               # 26 条：抽取 / 校验 / 提醒 / 迁移 / 接口
-├── Dockerfile           # python:3.10-slim，EXPOSE 8000
+├── Dockerfile           # python:3.10-slim，EXPOSE 8021
 └── .github/workflows/test.yml
 ```
 
