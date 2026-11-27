@@ -10,9 +10,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from ..adapters.llm import build_llm
 from ..adapters.store import Store
+from ..app.run import SUMMARY_PROMPT, digest_and_save, finish, open_actions, reminder
 from ..app.run import digest as run_digest
-from ..app.run import digest_and_save, finish, open_actions, reminder
 from ..app.run import email as build_email
 from ..config import settings as base_settings
 
@@ -38,12 +39,18 @@ def digest(
         console.print("[red]需要 --file 或 --text[/]")
         raise typer.Exit(code=2)
     transcript = file.read_text(encoding="utf-8") if file else (text or "")
-    store = Store(_settings(db).db_path)
+    settings = _settings(db)
+    llm = (
+        build_llm(settings.llm_base_url, settings.llm_api_key, settings.llm_model, SUMMARY_PROMPT)
+        if settings.llm_enabled
+        else None
+    )
+    store = Store(settings.db_path)
     if save:
-        report, meeting_id = digest_and_save(store, transcript, date.today(), title)
+        report, meeting_id = digest_and_save(store, transcript, date.today(), title, llm)
         console.print(f"[green]已保存[/] 会议 #{meeting_id}")
     else:
-        report = run_digest(transcript, date.today())
+        report = run_digest(transcript, date.today(), llm)
 
     if as_json:
         console.print_json(json.dumps({
@@ -68,6 +75,9 @@ def digest(
         for a in report.actions:
             table.add_row(a.text[:40], a.assignee or "—", a.due.isoformat() if a.due else "—")
         console.print(table)
+    if report.summary:
+        console.print("\n[bold]模型摘要[/]")
+        console.print(report.summary)
     if report.findings:
         console.print("\n[bold]问题[/]")
         for f in report.findings:

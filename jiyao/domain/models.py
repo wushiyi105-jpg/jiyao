@@ -38,6 +38,7 @@ class Report:
     actions: list[Action] = field(default_factory=list)
     questions: list[str] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
+    summary: str = ""
 
     @property
     def unassigned(self) -> list[Action]:

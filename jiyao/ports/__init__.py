@@ -8,6 +8,11 @@ from ..domain.models import Action, Decision, Report
 
 
 @runtime_checkable
+class LLMPort(Protocol):
+    def write(self, system: str, facts: str) -> str: ...
+
+
+@runtime_checkable
 class StorePort(Protocol):
     def save(self, report: Report, title: str = "") -> int: ...
 
