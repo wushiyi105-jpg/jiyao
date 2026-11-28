@@ -1,76 +1,74 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>jiyao · 会议纪要</title>
-<style>
-  :root{--bg:#0d1117;--card:#161b22;--line:#30363d;--ink:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--warn:#d29922;--bad:#f85149}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;line-height:1.6}
-  .wrap{max-width:820px;margin:0 auto;padding:40px 20px 80px}
-  h1{font-size:26px;margin:0 0 4px}
-  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
-  textarea,input{width:100%;background:#0d1117;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit}
-  textarea{min-height:180px;resize:vertical}
-  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
-  button{margin-top:16px;background:var(--accent);color:#0d1117;border:none;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer}
-  .card{margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
-  h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600}
-  ul{margin:0;padding-left:18px}
-  li{margin:4px 0}
-  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
-  td,th{padding:7px 6px;border-bottom:1px solid #21262d;text-align:left}
-  th{color:var(--muted);font-size:12px}
-  .high{color:var(--bad)}
-  .warn{color:var(--warn)}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>jiyao</h1>
-  <div class="sub">贴一段会议转写，出决议与待办，每条都能回到原文</div>
+{% from "_macros.html" import shell, head, stats, card, tag, empty, note %}
+{% call shell("jiyao", "会议纪要", true) %}
+{{ head("会议纪要", "贴一段会议转写，出决议与待办，每条都能回到原文") }}
 
-  <form method="post" action="/digest">
-    <label>会议标题</label>
-    <input name="title" placeholder="11 月产品周会">
-    <label>转写内容</label>
-    <textarea name="transcript" placeholder="主持人：这周先把支付流程定了……"></textarea>
-    <button type="submit">生成纪要</button>
-  </form>
+{% call card("转写内容") %}
+<form method="post" action="/digest">
+  <div class="field" style="margin-bottom:12px"><label>会议标题</label><input class="input" name="title" placeholder="11 月产品周会"></div>
+  <div class="field" style="margin-bottom:12px"><label>转写内容</label><textarea class="input" name="transcript" rows="8" placeholder="主持人：这周先把支付流程定了……"></textarea></div>
+  <div class="form-actions"><button class="btn btn--primary" type="submit">生成纪要</button><span class="s" style="color:var(--text-3);font-size:var(--fs-xs)">本地规则解析，不调用外部模型</span></div>
+</form>
+{% endcall %}
 
-  {% if result %}
-  <div class="card">
-    <h2>已定事项</h2>
-    <ul>{% for d in result.decisions %}<li>{{ d }}</li>{% else %}<li>无</li>{% endfor %}</ul>
-  </div>
-  <div class="card">
-    <h2>待办</h2>
-    <table>
-      <tr><th>事项</th><th>负责人</th><th>期限</th></tr>
-      {% for text, owner, due in result.actions %}
-      <tr><td>{{ text }}</td><td>{{ owner }}</td><td>{{ due }}</td></tr>
-      {% endfor %}
-    </table>
-  </div>
-  {% if result.findings %}
-  <div class="card">
-    <h2>问题</h2>
-    <ul>
-      {% for rule, msg in result.findings %}
-      <li class="{{ 'high' if 'trace' in rule or 'overdue' in rule else 'warn' }}">{{ rule }} — {{ msg }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-  {% endif %}
+{% if result %}
+<div class="section-gap"></div>
+{{ stats([
+  ("已定事项", result.decisions|length, "条"),
+  ("待办", result.actions|length, "条"),
+  ("问题", result.findings|length, "条"),
+  ("未完成", open|length, "条")
+]) }}
 
-  {% if open %}
-  <div class="card">
-    <h2>未完成（{{ open|length }}）</h2>
-    <ul>{% for a in open %}<li>{{ a.text[:48] }} — {{ a.assignee or '未指派' }}</li>{% endfor %}</ul>
+<div class="cols">
+  <div>
+    {% call card("已定事项", result.decisions|length ~ " 条") %}
+      {% if result.decisions %}
+      <div class="stack">
+        {% for d in result.decisions %}<div class="list-row"><span class="t">{{ d }}</span>{{ tag("已定", "ok") }}</div>{% endfor %}
+      </div>
+      {% else %}
+      {{ empty("没有识别到明确决议") }}
+      {% endif %}
+    {% endcall %}
   </div>
-  {% endif %}
+  <div>
+    {% call card("待办", result.actions|length ~ " 条") %}
+      {% if result.actions %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>事项</th><th>负责人</th><th>期限</th></tr></thead>
+          <tbody>
+            {% for text, owner, due in result.actions %}
+            <tr><td>{{ text }}</td><td>{{ owner }}</td><td class="muted">{{ due }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      {{ empty("没有识别到待办") }}
+      {% endif %}
+    {% endcall %}
+  </div>
 </div>
-</body>
-</html>
+
+{% if result.findings %}
+{% call card("问题", result.findings|length ~ " 条") %}
+  <div class="stack">
+  {% for rule, msg in result.findings %}
+    <div class="list-row"><span class="t">{{ msg }}</span>{{ tag(rule, "bad" if "trace" in rule or "overdue" in rule else "warn") }}</div>
+  {% endfor %}
+  </div>
+{% endcall %}
+{% endif %}
+{% endif %}
+
+{% if open %}
+{% call card("历史未完成", open|length ~ " 条") %}
+  <div class="stack">
+    {% for a in open %}
+    <div class="list-row"><span class="t">{{ a.text[:48] }}</span><span class="s">{{ a.assignee or "未指派" }}</span></div>
+    {% endfor %}
+  </div>
+{% endcall %}
+{% endif %}
+{% endcall %}

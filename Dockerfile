@@ -6,6 +6,7 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY jiyao ./jiyao
 COPY templates ./templates
+COPY static ./static
 COPY prompts ./prompts
 COPY data ./data
 COPY migrations ./migrations
@@ -25,6 +26,7 @@ WORKDIR /app
 
 COPY --from=builder /install /usr/local
 COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/static ./static
 COPY --from=builder /app/prompts ./prompts
 COPY --from=builder /app/data ./data
 COPY --from=builder /app/jiyao ./jiyao
@@ -36,3 +38,4 @@ VOLUME ["/data"]
 EXPOSE 8021
 
 CMD ["uvicorn", "jiyao.iface.web:app_factory", "--factory", "--host", "0.0.0.0", "--port", "8021"]
+
