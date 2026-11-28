@@ -1,6 +1,16 @@
 {% from "_macros.html" import shell, head, stats, card, tag, empty, note %}
-{% call shell("jiyao", "会议纪要", true) %}
-{{ head("会议纪要", "贴一段会议转写，出决议与待办，每条都能回到原文") }}
+{% call shell("jiyao", "会后兑现板", true) %}
+{{ head("这次开会先追这些", "贴一段会议转写，出决议与待办，每条都能回到原文") }}
+
+{% if open %}
+{% call card("未结事项", open|length ~ " 条") %}
+  <div class="stack">
+    {% for a in open %}
+    <div class="list-row"><span class="t">{{ a.text[:56] }}</span><span class="s">{{ a.assignee or "待指定" }}</span></div>
+    {% endfor %}
+  </div>
+{% endcall %}
+{% endif %}
 
 {% call card("转写内容") %}
 <form method="post" action="/digest">
@@ -60,15 +70,5 @@
   </div>
 {% endcall %}
 {% endif %}
-{% endif %}
-
-{% if open %}
-{% call card("历史未完成", open|length ~ " 条") %}
-  <div class="stack">
-    {% for a in open %}
-    <div class="list-row"><span class="t">{{ a.text[:48] }}</span><span class="s">{{ a.assignee or "未指派" }}</span></div>
-    {% endfor %}
-  </div>
-{% endcall %}
 {% endif %}
 {% endcall %}

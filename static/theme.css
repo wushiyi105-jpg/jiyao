@@ -1,0 +1,28 @@
+:root {
+  --bg: #F2EFE9;
+  --bg-subtle: #EBE7DF;
+  --bg-muted: #DFD9CE;
+  --card: #FFFFFF;
+  --text: #1F211F;
+  --text-2: #4e504b;
+  --text-3: #60605b;
+  --text-4: #6b6c64;
+  --border: #DDD8CC;
+  --border-2: #CCC6B8;
+  --border-3: #B8B09E;
+  --accent: #2F5D8A;
+  --accent-soft: #E8EFF6;
+  --accent-ink: #244A6E;
+  --radius: 2px;
+  --radius-sm: 2px;
+  --radius-lg: 4px;
+}
+:root[data-theme="dark"] {
+  --accent: #7FA8D0;
+  --accent-soft: #16283D;
+  --accent-ink: #BAD2EA;
+}
+.card { border-left: 3px solid var(--accent); }
+.card__head h2 { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 5px; }
+.table th { background: transparent; border-bottom: 2px solid var(--accent); }
+
